@@ -5,29 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GG Partner — find your partner for anything</title>
 <meta name="description" content="GG Partner — find partners for games, gym, study, projects, language exchange, hobbies and travel.">
-<link rel="canonical" href="https://ggpartner.netlify.app/">
+
 <meta name="theme-color" content="#05070d">
 
 <!-- Link previews. Without these a shared link is a bare URL. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="GG Partner">
-<meta property="og:url" content="https://ggpartner.netlify.app/">
+
 <meta property="og:title" content="GG Partner — find your partner for anything">
 <meta property="og:description" content="Ranked duo at 9pm. A gym partner at the same gym. Someone to sit across from in the library. One profile per thing you are into, a live map of who is nearby, and voice notes and calls when you find them.">
-<meta property="og:image" content="https://ggpartner.netlify.app/og.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+
+
+
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="GG Partner — find your partner for anything">
 <meta name="twitter:description" content="One profile per thing you are into, a live map of who is nearby, and voice notes and calls when you find them.">
-<meta name="twitter:image" content="https://ggpartner.netlify.app/og.png">
 
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"GG Partner",
- "url":"https://ggpartner.netlify.app/","applicationCategory":"SocialNetworkingApplication",
- "operatingSystem":"Any","description":"Find partners for games, gym, study, projects, language exchange, hobbies and travel.",
- "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
-</script>
+
+
 
 <!-- Leaflet: the map library. Free, no API key, no billing, no account.
      Tiles come from OpenStreetMap via CARTO. Loaded before our own CSS
@@ -38,7 +33,7 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="assets/styles.css">
 </head>
 
 <body>
@@ -268,8 +263,8 @@
         <div class="lcard">
           <span class="lico"><svg class="ic"><use href="#i-shield-check"></use></svg></span>
           <b>Verified members</b>
-          <p>Link a phone number and your card carries a verified badge.
-            Filter the list to verified people only whenever you want.</p>
+          <p>Phone verification is not available in this edition.
+            Use profiles and shared interests to find a partner.</p>
         </div>
         <div class="lcard">
           <span class="lico"><svg class="ic"><use href="#i-sparkles"></use></svg></span>
@@ -292,7 +287,7 @@
       <h2 class="lh2">How it works</h2>
       <ol class="lsteps">
         <li><span class="n">1</span><b>Sign in with Google</b>
-          <p>No password to invent, no code to wait for. Your profile, matches
+          <p>Use your Google account; no separate app password is needed. Your profile, matches
             and chats then follow you to any device.</p></li>
         <li><span class="n">2</span><b>Add a profile to a category</b>
           <p>You only appear in the categories you fill in. Add Game today and
@@ -313,7 +308,7 @@
           <li><svg class="ic"><use href="#i-ghost"></use></svg><span><b>Ghost mode.</b> Stay in Discover and disappear from the map, any time, with one switch.</span></li>
           <li><svg class="ic"><use href="#i-clock"></use></svg><span><b>Sharing expires.</b> Live location runs on a timer you set. It stops itself.</span></li>
           <li><svg class="ic"><use href="#i-triangle-alert"></use></svg><span><b>Report and block.</b> Blocking is instant and mutual — the person disappears from your list and you from theirs.</span></li>
-          <li><svg class="ic"><use href="#i-key-round"></use></svg><span><b>No passwords, no payments.</b> GG Partner will never ask for a password, a code or a card.</span></li>
+          <li><svg class="ic"><use href="#i-key-round"></use></svg><span><b>Your account, your profile.</b> Sign in with Google. No payment is required.</span></li>
         </ul>
       </div>
       <div class="lend">
@@ -333,16 +328,7 @@
   </footer>
 </div>
 
-<script>
-/* Returning members must not watch the landing page flash past on every
-   visit, so the class that hides it goes on before the first paint. */
-(function () {
-  try {
-    var seen = localStorage.getItem("ggpartner.seenApp") === "1";
-    if (seen) document.documentElement.classList.add("app-mode");
-  } catch (e) {}
-})();
-</script>
+<script src="assets/boot.js"></script>
 
 <div class="ticker" aria-hidden="true">
   <div class="ticker-track"><span><svg class="ic" aria-hidden="true"><use href="#i-gamepad-2"></use></svg> <b>Duo queue</b> partners online now</span><span><svg class="ic" aria-hidden="true"><use href="#i-dumbbell"></use></svg> Gym buddies within <b>5 km</b></span><span><svg class="ic" aria-hidden="true"><use href="#i-book-open"></use></svg> Study sessions starting <b>tonight</b></span><span><svg class="ic" aria-hidden="true"><use href="#i-languages"></use></svg> Language exchange · <b>28 languages</b></span><span><svg class="ic" aria-hidden="true"><use href="#i-wrench"></use></svg> Project collaborators looking for a team</span><span><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Travel partners for the weekend</span><span><svg class="ic" aria-hidden="true"><use href="#i-gamepad-2"></use></svg> <b>Duo queue</b> partners online now</span><span><svg class="ic" aria-hidden="true"><use href="#i-dumbbell"></use></svg> Gym buddies within <b>5 km</b></span><span><svg class="ic" aria-hidden="true"><use href="#i-book-open"></use></svg> Study sessions starting <b>tonight</b></span><span><svg class="ic" aria-hidden="true"><use href="#i-languages"></use></svg> Language exchange · <b>28 languages</b></span><span><svg class="ic" aria-hidden="true"><use href="#i-wrench"></use></svg> Project collaborators looking for a team</span><span><svg class="ic" aria-hidden="true"><use href="#i-plane"></use></svg> Travel partners for the weekend</span></div>
@@ -387,10 +373,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <!-- Firebase SDK (compat build: plain scripts, no bundler needed) -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-
-<script src="app.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
 </body>
 </html>

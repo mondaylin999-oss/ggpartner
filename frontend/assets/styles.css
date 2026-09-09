@@ -1,3 +1,4 @@
+
 /* ==================================================================
    GG Partner — standalone front end.
    HTML + CSS + JS in one file. State lives in localStorage, so there
@@ -2439,3 +2440,6 @@ img,.avatar img,.lshot img{image-rendering:pixelated}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
 }
 .notif:active{transform:translate(-50%,2px)}
+/* Keep the page canvas dark/light consistently when content exceeds viewport. */
+html { background: var(--bg); }
+body { min-height: 100dvh; }

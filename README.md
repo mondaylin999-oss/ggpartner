@@ -1,125 +1,61 @@
-# GG Partner
+# GG Partner — User Guide
 
-**Find the person who is free when you are.**
+Find a partner for games, gym, study, projects, language exchange, hobbies, hangouts, or travel. This edition keeps the supplied app's visual design and uses a PostgreSQL-backed server for signed-in accounts.
 
-A partner-finder for the things you actually want company for — a ranked duo at
-9pm, a gym partner at the same gym, someone to sit across from in the library.
-It shows you who is nearby and free *right now*, and gets you talking.
+## Open the app
 
-**Live:** [ggpartner.netlify.app](https://ggpartner.netlify.app)
+If someone is hosting GG Partner for you, open the address they provide. You do not need to install Node.js or PostgreSQL on your device.
 
-University web project · Team of 4
+To run your own local copy:
 
----
+1. Install Docker Desktop and start it.
+2. Extract this entire ZIP. Open a terminal in the `gg-partner` folder containing `compose.yaml`.
+3. Copy `.env.example` to `.env`. On Windows PowerShell: `Copy-Item .env.example .env`.
+4. Edit `.env` and replace `POSTGRES_PASSWORD` with a unique long alphanumeric password. Keep the local address settings as supplied.
+5. Run `docker compose up --build -d`.
+6. Open **http://localhost:3000**. The first startup downloads container images and may take several minutes. Google login starts unconfigured; follow `README1.md` to connect Firebase, or choose guest mode.
 
-## The idea
+Stop with `docker compose down`. Application data remains in the Docker volume; Google identities are managed by Firebase Authentication. Start again with `docker compose up -d`. Do not add `-v` to the stop command unless you intend to erase all database data.
 
-Most plans die in the gap between "free" and "free at the same time as you".
-GG Partner treats a useful match as four signals that all have to line up:
+## Your first session
 
-| Signal | Means |
-| --- | --- |
-| **Interest** | You both want the same activity |
-| **Time** | Your free windows actually overlap |
-| **Place** | Close enough to turn up |
-| **Fit** | Rank, level and pace that work together |
+1. Select **Continue with Google**.
+2. Choose your Google account in the popup. No separate app password is needed. If sign-in is not configured, the operator must complete the Firebase setup in `README1.md`; you can use guest mode in the meantime.
+3. Open **Profile** and complete your information. Add a category profile for each activity you want partners for.
+4. Set your availability and relevant category fields, such as a game/rank or study subject.
+5. Open **Discover**, choose a category, and use the search and filters. A new installation starts empty; other real accounts must join before you can find them.
+6. Open a person's profile to like, connect, or chat using the available buttons. **Matches** shows your matches and **Chats** shows conversations.
 
-Every card shows a match score *and the four reasons behind it*, so the number is
-never a black box.
+Example: Make a Study profile with “Networking exam revision”, add “TCP/IP and subnetting” to your description, and choose your available evenings. Another student can find you in Study and send “Library at 5 pm?” in chat.
 
-## What it does
+## Events
 
-- **Eight categories** — game, gym, study, hangout, projects, language, hobbies,
-  travel. One profile per thing you're into, each asking its own questions:
-  Game wants rank and role, Study wants subject and level, Travel wants dates
-  and a destination.
-- **A live map** with presence, showing who is nearby and available now.
-- **Ghost mode** — disappear from the map in one switch while staying in
-  Discover and keeping your profile browsable.
-- **Event lobbies** for when a pair isn't enough: a five-stack, a running group,
-  four for a study table. Open a lobby with slots and watch it fill.
-- **Text, voice notes and peer-to-peer voice calls**, plus links out to Discord,
-  Instagram, Telegram or Facebook if you'd rather move the conversation.
-- **Verified members** via phone number, with a filter for verified only.
+Switch Discover to events and choose the host/create-event action. Enter a title, category, schedule, capacity, visibility, and optional meeting stops. Other eligible members can join while slots remain. Hosts can start or end the session. Participants can leave; the host controls the event.
 
-## Privacy
+Example: Create “Saturday gym session”, set four places, and choose a meeting location. The server checks the latest capacity when someone joins so an outdated screen cannot overfill the event.
 
-The app is built to hand out as little as possible:
+## Location and privacy
 
-- Your public card carries a point **rounded to about a kilometre**, never an
-  address. Your exact position is readable only by people you have matched with.
-- **Location sharing expires** on a timer you set — 15 minutes or an hour — and
-  stops itself.
-- **Blocking is instant and mutual**: they leave your list and you leave theirs.
-- GG Partner never asks for a password, a code, or payment details.
+Location sharing starts off. You can decline the location prompt and still use the app. When you enable sharing, the public profile uses a rounded location; matched people you allow can receive your precise location. Ghost mode switches sharing off. A category's meeting place is also visible as part of that category profile, so choose a public venue.
 
-## Built with
+Private account state and chats require sign-in. Blocking someone hides profiles and denies communication/location access between those accounts. Reports are saved for the operator; there is no automatic moderation or moderator dashboard in this package.
 
-Plain **HTML, CSS and JavaScript** — no front-end framework, no bundler, no build
-step beyond copying files.
+## Messages and calls
 
-| | |
-| --- | --- |
-| Auth | Firebase Authentication (Google sign-in) |
-| Data | Cloud Firestore |
-| Map | Leaflet + OpenStreetMap / CARTO tiles |
-| Calls | WebRTC, peer to peer, Firestore used only for signalling |
-| Icons | Lucide |
-| Hosting | Netlify |
+Text messages and short voice notes are saved on the server. Updates normally arrive within about two seconds. Allow microphone access to record or call. Voice calls use WebRTC and may fail on restrictive networks because a TURN relay is not included. Microphone and location access require localhost or HTTPS.
 
-The interface is themed as a pixel arcade — gold and violet on near-black, with
-Press Start 2P and Silkscreen for chrome. Body copy stays in a normal sans on
-purpose: a pixel face at 14px is not readable across a paragraph.
+Google sign-in is available after the operator connects Firebase. Phone verification and an account-deletion screen are not implemented. Google manages your Google account password and recovery.
 
-## Layout
+## Guest use
 
-```
-src/
-  index.html        markup
-  styles.css        all styling, including the pixel theme layer
-  app.js            the whole application
-  firestore.rules   security rules — paste into the Firebase console
-build.sh            copies src/ into dist/ and writes a version stamp
-_headers            Netlify cache rules
-```
+**Continue without signing in** opens local browsing. Guest edits stay in that browser and are not shared with other users. Clearing site data removes them. Guest data is not imported when you create an account. Sign out before letting another person use the same browser.
 
-Two scripts stay inline in `index.html` deliberately: the JSON-LD block, and a
-nine-line script that sets `app-mode` before first paint so returning members
-don't watch the landing page flash past.
+## Troubleshooting
 
-## Running it
+- **Cannot open the page:** check Docker Desktop, then run `docker compose ps` and `docker compose logs backend` in the project folder.
+- **No people:** sign in with a second Google account in a private browser window and add a category profile. No sample users are seeded.
+- **Not syncing:** check your connection, wait a few seconds, and sign in again if your Firebase session expired or was revoked. Unsaved local changes are not a guaranteed offline queue.
+- **Map/fonts missing:** the original interface loads map libraries, map tiles, place search and fonts from external services. These require internet access.
+- **Cannot access your Google account:** use Google account recovery. This app does not store a Google password.
 
-Any static server will do — there is nothing to install and nothing to compile.
-
-```sh
-./build.sh
-cd dist && python3 -m http.server 8000
-```
-
-Then open `http://localhost:8000`.
-
-To point it at your own Firebase project, replace `FIREBASE_CONFIG` near the top
-of `src/app.js`, then in the Firebase console:
-
-1. **Authentication → Sign-in method** — enable Google.
-2. **Authentication → Settings → Authorised domains** — add your domain.
-3. **Firestore Database** — create the database.
-4. **Firestore Database → Rules** — paste `src/firestore.rules` and publish.
-
-Step 4 matters: the app reads six collections (`profiles`, `users`, `threads`,
-`precise`, `calls`, `events`), and rules that miss any of them make the matching,
-calls or map fail silently.
-
-The Firebase web config in the source is public on purpose — it identifies the
-project and grants nothing. The real gate is Authentication plus the Firestore
-rules.
-
-## Deploying
-
-`build.sh` writes a version stamp hashed from all three source files together, so
-the app only prompts a reload when something actually changed.
-
-```sh
-./build.sh
-netlify deploy --dir=dist --prod
-```
+For development, API details, database operations, and deployment notes, read `README1.md`.

@@ -1,0 +1,7 @@
+# Optional overlay: use only after placing the server credential in secrets/.
+services:
+  backend:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json
+    volumes:
+      - ./secrets/firebase-admin.json:/run/secrets/firebase-admin.json:ro

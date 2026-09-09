@@ -1,3 +1,4 @@
+
 (function () {
 "use strict";
 
@@ -33,42 +34,8 @@ var TILES = {
   }
 };
 
-/* ==================================================================
-   FIREBASE
-   Sign in with Google, and keep your profile, likes, matches and
-   chats on Google's servers instead of only in this browser.
 
-   Where these values come from:
-     Firebase console -> Project settings -> General -> Your apps ->
-     the web app -> "SDK setup and configuration" -> Config.
-   They are public on purpose: they identify the project, they do not
-   grant access. The real gate is Firebase Authentication plus the
-   Firestore security rules.
 
-   Before it will work you must also:
-     1. Authentication -> Sign-in method -> enable Google.
-     2. Authentication -> Settings -> Authorised domains -> add the
-        domain you serve this page from (localhost is already there).
-     3. Firestore Database -> Create database.
-     4. Firestore Database -> Rules -> paste the contents of
-        firestore.rules (next to this file) and press Publish.
-
-   Collections used:
-     profiles/{uid}                   public member card (the directory)
-     users/{uid}                      your private state: likes, matches
-     threads/{a__b}/messages/{id}     a conversation between two members
-
-   Leave FIREBASE_CONFIG.apiKey empty to turn all of this off; the app
-   then runs exactly as before, saving only to this browser.
-   ================================================================== */
-var FIREBASE_CONFIG = {
-  apiKey: "AIzaSyA7P-dMbGSnJwYCpSXsXUo08aQr1TISx4g",
-  authDomain: "gg-partner-f8d94.firebaseapp.com",
-  projectId: "gg-partner-f8d94",
-  storageBucket: "gg-partner-f8d94.firebasestorage.app",
-  messagingSenderId: "107058983330",
-  appId: "1:107058983330:web:6390529fb76df8b2ba02fb"
-};
 
 /* ==================================================================
    1. STATIC DATA
@@ -331,9 +298,7 @@ var CATEGORIES = [
    family, with a mint and a rose so faces still tell apart. */
 var HUES = ["#7C4CBE", "#D19A23", "#A75FD0", "#E0A93C", "#2E9E86", "#5B2FA0", "#C4536B", "#8A5A10"];
 
-/* Real members only. This starts empty and is filled from Firestore
-   with the profiles of people who have signed in with Google. Nobody
-   is invented — if the list is empty, nobody has joined yet. */
+
 var PEOPLE = [];
 var directoryLoaded = false;
 
@@ -362,23 +327,23 @@ var defaultState = {
   blocked: [],       // uids you have blocked; hidden both ways
   reported: [],      // uids you have already reported, so the button can say so
   me: {
-    name: "Alex Rivera",
-    age: 27,
+    name: "New member",
+    age: "",
     gender: "",
     height: "",
     career: "",
-    city: "Lisbon",
+    city: "",
     lat: 38.7223,
     lng: -9.1393,
-    locLabel: "Lisbon (default)",
-    sharing: true,     // ghost mode when false
+    locLabel: "Location not set",
+    sharing: false,    // opt in before publishing location
     live: false,       // continuous tracking
     liveUntil: 0,      // 0 = until switched off, else a timestamp
     lastFix: 0,
     profiles: {},   // categorySlug -> { headline, bio, tags, avail }  (one each)
-    headline: "Up for most things, good at showing up",
-    bio: "Front-end dev by day. Looking for a gym partner and someone to practise Portuguese with. I reply fast and I don't flake.",
-    tags: ["Fitness", "Language", "Projects"],
+    headline: "",
+    bio: "",
+    tags: [],
     notify: true,
     nearby: true,
     online: true,
@@ -477,9 +442,7 @@ function avatarFor(p, size, extraStyle) {
     (extraStyle || '') + '">';
 }
 
-/* Verification here means one specific, checkable thing: this member
-   proved they control a phone number, through Firebase. It is not an
-   identity check and the wording never pretends otherwise. */
+
 function verifiedHTML(p, compact) {
   if (!p) return "";
   if (p.phoneVerified) {
@@ -572,12 +535,7 @@ function unblockUser(id) {
   toast("Unblocked");
 }
 
-/* ---- alerts -------------------------------------------------------
-   The "New pair alerts" switch used to set a flag nothing read. It now
-   asks the browser for permission and raises a notification while the
-   tab is in the background. Notifications with the tab fully closed
-   would need Firebase Cloud Messaging and a server to send them, which
-   this build deliberately does not have. */
+
 var lastSeenMsgAt = {};
 
 function alertsAllowed() {
@@ -619,17 +577,7 @@ function notifyNewMessages(otherUid, msgs) {
    3b. PRESENCE, CONTACT LINKS, MATCH SCORE
    ================================================================== */
 
-/* How long since someone's client last checked in. The heartbeat runs
-   every 90s while a tab is visible, so "active now" means "within the
-   last five minutes" rather than "this exact second".
 
-   These two numbers are the whole presence system, and they are also
-   its running cost: one Firestore write per member per beat. At 90s a
-   member with the tab open all day costs about 320 writes, so the free
-   tier's 20,000 a day covers roughly 60 people online at once. Raise
-   BEAT_MS if that ceiling ever gets close; keep PRESENCE_FRESH at
-   about three times it so a single missed beat does not make someone
-   look like they left. */
 var BEAT_MS = 90000;
 var PRESENCE_FRESH = 5 * 60 * 1000;
 
@@ -999,7 +947,7 @@ document.addEventListener("click", function (e) {
   var act = e.target.closest('[data-act="signout"], [data-act="signin"]');
   if (act) {
     if (act.getAttribute("data-act") === "signout") signOut();
-    else signInWithGoogle();
+    else openAccount();
   }
 });
 
@@ -1047,9 +995,7 @@ byId("themeSide").addEventListener("click", toggleTheme);
    6. RENDER ROUTER
    ================================================================== */
 
-/* Data changed underneath us (a Firestore push, a new fix from the GPS).
-   Update what is on screen without rebuilding views that hold live
-   state — the map keeps its position, the message box keeps your text. */
+
 /* True while the caret is in a field. A background snapshot that
    rebuilds the view mid-sentence throws the half-typed value away,
    which is what made the profile inputs look like they cleared
@@ -1222,7 +1168,7 @@ function showLocationCard() {
       '<p>GG Partner uses your location for two things: sorting partners by how far away ' +
       'they are, and placing your pin on the map. Nothing else.</p>' +
       '<ul class="locfacts">' +
-        '<li>Your exact position is never shown to anyone \u2014 only the distance.</li>' +
+        '<li>When sharing is on, your public pin is approximate. Matched partners can receive your exact position.</li>' +
         '<li>Ghost mode hides your pin completely, any time.</li>' +
         '<li>You can say no and still use every part of the app.</li>' +
       '</ul>' +
@@ -1712,15 +1658,15 @@ function emptyListHTML() {
     if (!cloud.on) {
       return '<div class="empty">' +
         '<div class="big">' + ic('users') + '</div><h3>No members yet</h3>' +
-        '<p>Firebase is switched off, so this browser has no way to see anyone else. ' +
-        'Add your Firebase config to turn on sign-in and the member directory.</p></div>';
+        '<p>The server connection is unavailable, so this browser has no way to see anyone else. ' +
+        'Start the backend to use sign-in and the member directory.</p></div>';
     }
     if (!cloud.user) {
       return '<div class="empty">' +
         '<div class="big">' + ic('key-round') + '</div><h3>Sign in to see members</h3>' +
-        '<p>Everyone on GG Partner is a real person signed in with Google. ' +
+        '<p>Everyone on GG Partner is a real person signed in. ' +
         'Sign in and your profile joins the directory too.</p>' +
-        '<button class="btn primary" data-act="signin">Sign in with Google</button></div>';
+        '<button class="btn primary" data-act="signin">Sign in</button></div>';
     }
     if (cloud.error) {
       return '<div class="empty">' +
@@ -1733,7 +1679,7 @@ function emptyListHTML() {
     return '<div class="empty">' +
       '<div class="big">' + ic('sprout') + '</div><h3>You are the first one here</h3>' +
       '<p>Nobody else has signed in yet. Your profile is already listed, so as soon as ' +
-      'someone joins with Google they will show up here \u2014 and you will show up for them.</p></div>';
+      'someone creates an account they will show up here \u2014 and you will show up for them.</p></div>';
   }
 
   if ((current.query || "").trim()) {
@@ -3111,9 +3057,7 @@ function afterChat() {
   input.focus();
 }
 
-/* One way in for every kind of message. Draws it straight away so the
-   thread feels instant, then lets the Firestore snapshot replace it
-   with the authoritative copy (which is what carries the receipts). */
+
 function sendMessage(id, msg) {
   pushMsg(id, "me", msg);
   if (cloud.on && cloud.user) sendToCloud(id, msg);
@@ -3148,18 +3092,7 @@ function startPresenceTicker() {
   }, 30000);
 }
 
-/* ==================================================================
-   11c. VOICE CALLS
-   WebRTC, with Firestore used only to pass the offer, the answer and
-   the ICE candidates between the two browsers. Once connected the
-   audio goes peer to peer and never touches a server of ours.
 
-   The one honest caveat: there is a STUN server but no TURN server.
-   STUN is free and gets two peers talking through most home routers.
-   A minority of networks — strict corporate NATs, some mobile carrier
-   CGNAT — need TURN, which has to be paid for. On those, the call
-   will ring, fail to connect, and say so rather than hanging.
-   ================================================================== */
 
 var RTC_CONF = {
   iceServers: [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }]
@@ -3202,7 +3135,12 @@ function startCall(otherUid) {
     var doc = callsCol().doc();
     call.id = doc.id;
     var callerCands = doc.collection("callerCandidates");
-    pc.onicecandidate = function (e) { if (e.candidate) callerCands.add(e.candidate.toJSON()); };
+    var pendingCandidates = [], callPublished = false;
+    pc.onicecandidate = function (e) {
+      if (!e.candidate) return;
+      if (callPublished) callerCands.add(e.candidate.toJSON()).catch(noteCloudError);
+      else pendingCandidates.push(e.candidate.toJSON());
+    };
 
     return pc.createOffer()
       .then(function (offer) { return pc.setLocalDescription(offer).then(function () { return offer; }); })
@@ -3217,6 +3155,9 @@ function startCall(otherUid) {
         });
       })
       .then(function () {
+        callPublished = true;
+        pendingCandidates.forEach(function(c) { callerCands.add(c).catch(noteCloudError); });
+        pendingCandidates = [];
         setCallState("ringing");
         watchCallDoc(doc, "callee");
         /* Nobody should listen to a ringtone forever. */
@@ -3439,14 +3380,7 @@ function paintCall() {
     '<audio id="callaudio" autoplay></audio>';
 }
 
-/* ==================================================================
-   11b. VOICE NOTES
-   Recorded with MediaRecorder, encoded as a data: URI and carried
-   inside the message document itself. That keeps the whole app on
-   Firestore's free tier with no file storage to configure — at the
-   cost of a hard length limit, which is why recording stops itself
-   at sixty seconds.
-   ================================================================== */
+
 
 var VOICE_MAX_SEC = 60;
 var VOICE_MAX_BYTES = 900000;          // Firestore documents cap at 1 MiB
@@ -3520,7 +3454,7 @@ function startRecording(partnerId) {
       var el = byId("rectime");
       if (el) el.textContent = durLabel((Date.now() - rec.started) / 1000);
     }, 200);
-    /* Stops itself, so nobody sends a document Firestore will reject. */
+    
     rec.to = setTimeout(function () { stopRecording(false); }, VOICE_MAX_SEC * 1000);
   }).catch(function (err) {
     toast(err && err.name === "NotAllowedError"
@@ -3597,21 +3531,19 @@ function armVoicePlayback() {
   });
 }
 
-/* Replies now arrive from the other person through Firestore, so there
-   is nothing to simulate. Kept as a no-op for older call sites. */
+
 function replyLater() {}
 
 /* ==================================================================
    11. PROFILE
    ================================================================== */
 
-/* Account card: who is signed in, whether Firestore is syncing, and a
-   way out. Renders nothing at all when Firebase is switched off. */
+
 function accountCardHTML() {
   if (!cloud.on) {
     return '<section class="card panel">' +
       '<h3>Account</h3>' +
-      '<p style="color:var(--muted);font-size:13.5px">Firebase is switched off, so everything is ' +
+      '<p style="color:var(--muted);font-size:13.5px">The server connection is unavailable, so everything is ' +
       'saved only in this browser. Clearing site data would erase it.</p>' +
     '</section>';
   }
@@ -3621,7 +3553,7 @@ function accountCardHTML() {
       '<h3>Account</h3>' +
       '<p style="color:var(--muted);font-size:13.5px;margin-bottom:12px">You are browsing without ' +
       'signing in. Sign in with Google to keep your profile, matches and chats across devices.</p>' +
-      '<button class="btn block" data-act="signin">Sign in with Google</button>' +
+      '<button class="btn block" data-act="signin">Sign in</button>' +
     '</section>';
   }
 
@@ -3704,14 +3636,14 @@ function viewProfile() {
         (me.phoneVerified
           ? '<span class="vbadge">' + ic("shield-check") + 'Verified</span>'
           : '<button class="vbadge no" data-act="verifyphone" style="cursor:pointer">' +
-            ic("shield-alert") + 'Unverified — get verified</button>') +
+            ic("shield-alert") + 'Phone verification unavailable</button>') +
       '</div>' +
       '<div class="stats">' +
         '<div class="stat"><b>' + state.liked.length + '</b><span>Invites</span></div>' +
         '<div class="stat"><b>' + state.matches.length + '</b><span>Pairs</span></div>' +
         '<div class="stat"><b>' + state.seen.length + '</b><span>Viewed</span></div>' +
       '</div>' +
-      '<button class="btn block" data-act="reset-all">Reset all data</button>' +
+      '<button class="btn block" data-act="reset-all">Reset profile and preferences</button>' +
     '</section>' +
 
     accountCardHTML() +
@@ -3762,8 +3694,8 @@ function viewProfile() {
             '<span>Live' + (me.live && me.liveUntil ? ' · ' + esc(liveCountdown()) : '') + '</span></div>' +
         '</div>' +
         '<p style="color:var(--faint);font-size:12px">Every distance in GG Partner is measured from here. ' +
-        'Ghost mode hides your pin; live mode follows you until you stop it. Nothing leaves this browser ' +
-        '— there is no server behind this app yet, so “sharing” is local state.</p>' +
+        'Ghost mode hides your pin; live mode follows you until you stop it. When signed in, sharing ' +
+        'publishes an approximate location and allows matched partners to receive your exact position.</p>' +
       '</section>' +
 
       '<section class="card panel">' +
@@ -3887,9 +3819,7 @@ function armProfile() {
   }
 }
 
-/* Photos are squashed to a 256px square JPEG before they are stored, so
-   the whole card stays comfortably inside a Firestore document and no
-   file storage has to be set up. */
+
 function shrinkPhoto(file) {
   if (!/^image\//.test(file.type)) { toast("That is not an image"); return; }
   var reader = new FileReader();
@@ -4466,7 +4396,7 @@ function createEventFromDialog() {
   inviteDialog(ev.id);
 }
 
-/* ---- storage: Firestore when signed in, this browser otherwise ---- */
+
 
 function saveEvent(ev) {
   var i = EVENTS.findIndex(function (e) { return e.id === ev.id; });
@@ -5375,7 +5305,7 @@ document.addEventListener("click", function (e) {
       state = clone(defaultState);
       state.theme = theme;
       save(); go("discover");
-      toast("Everything reset");
+      toast("Profile and preferences reset");
     }
     return;
   }
@@ -5395,13 +5325,7 @@ document.addEventListener("keydown", function (e) {
   }
 });
 
-/* ==================================================================
-   12b. FIREBASE — sign in with Google, and sync to Firestore
 
-   Everything here is optional. If FIREBASE_CONFIG.apiKey is empty, or
-   the SDK fails to load, `cloud.on` stays false and the app behaves
-   exactly as it did before: local only.
-   ================================================================== */
 
 var cloud = {
   on: false,        // Firebase available and configured
@@ -5416,25 +5340,10 @@ var cloud = {
 /* localStorage key that remembers "this person chose to stay local". */
 var LOCAL_ONLY_KEY = "ggpartner.localOnly";
 
-function firebaseReady() {
-  return !!(window.firebase && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey);
+function initBackend() {
+ cloud.auth = GG.auth; cloud.db = GG.db; cloud.on = true; return true;
 }
 
-function initFirebase() {
-  if (!firebaseReady()) return false;
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    cloud.auth = firebase.auth();
-    cloud.db = firebase.firestore();
-    cloud.on = true;
-    return true;
-  } catch (e) {
-    cloud.error = "Firebase could not start: " + e.message;
-    return false;
-  }
-}
-
-/* ---- the sign-in screen ------------------------------------------ */
 
 function googleMark() {
   return '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">' +
@@ -5467,31 +5376,18 @@ function armLanding() {
 }
 
 function showGate(message) {
-  var g = byId("gate");
-  g.hidden = false;
-  g.innerHTML =
-    '<div class="box">' +
-      '<h1>GG Partner</h1>' +
-      '<p>Find the person who is free when you are. Sign in so your profile, matches and chats follow you to any device.</p>' +
-      '<button class="gbtn" id="gsignin">' + googleMark() + ' Continue with Google</button>' +
-      '<button class="ghost" id="glocal">Continue without signing in</button>' +
-      '<button class="ghost" id="gback">Back to the home page</button>' +
-      (message ? '<div class="err">' + esc(message) + '</div>' : '') +
-      '<p class="fine">Without signing in, everything is saved only in this browser. ' +
-      'GG Partner will never ask for a password, a code, or payment details.</p>' +
-    '</div>';
-
-  byId("gsignin").addEventListener("click", signInWithGoogle);
-  byId("glocal").addEventListener("click", function () {
-    try { localStorage.setItem(LOCAL_ONLY_KEY, "1"); } catch (e) {}
-    enterApp();
-    hideGate();
-    boot();
-  });
-  byId("gback").addEventListener("click", function () {
-    hideGate();
-    document.documentElement.classList.remove("app-mode");
-  });
+ var g=byId('gate');g.hidden=false;
+ g.innerHTML='<div class="box"><h1>GG Partner</h1><p>Use your Google account to keep your profile and chats across devices.</p>'+
+ '<button class="gbtn" id="gsignin">'+googleMark()+' Continue with Google</button>'+
+ '<p class="err" id="account-error"></p><button class="ghost" id="glocal">Continue without signing in</button><button class="ghost" id="gback">Back to home</button></div>';
+ byId('account-error').textContent=message||GG.auth.error||'';
+ byId('gsignin').onclick=async function(){
+   this.disabled=true;
+   try { await GG.auth.login(); }
+   catch(e){byId('account-error').textContent=e.message;this.disabled=false;}
+ };
+ byId('glocal').onclick=function(){localStorage.setItem(LOCAL_ONLY_KEY,'1');enterApp();hideGate();boot();};
+ byId('gback').onclick=function(){hideGate();document.documentElement.classList.remove('app-mode');};
 }
 
 function hideGate() {
@@ -5500,49 +5396,14 @@ function hideGate() {
   g.innerHTML = "";
 }
 
-function signInWithGoogle() {
-  var btn = byId("gsignin");
-  if (btn) { btn.disabled = true; btn.textContent = "Opening Google…"; }
-
-  var provider = new firebase.auth.GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
-
-  cloud.auth.signInWithPopup(provider).catch(function (err) {
-    /* Popups are blocked in some browsers (and in most in-app ones).
-       Fall back to a full-page redirect, which always works. */
-    if (err && (err.code === "auth/popup-blocked" ||
-                err.code === "auth/operation-not-supported-in-this-environment" ||
-                err.code === "auth/cancelled-popup-request")) {
-      cloud.auth.signInWithRedirect(provider);
-      return;
-    }
-    if (err && err.code === "auth/popup-closed-by-user") { showGate(""); return; }
-    showGate(explainAuthError(err));
-  });
-}
-
-function explainAuthError(err) {
-  var code = err && err.code ? err.code : "";
-  if (code === "auth/unauthorized-domain") {
-    return "This address is not on the Firebase authorised domains list. " +
-           "Add " + location.hostname + " in Firebase console -> Authentication -> Settings.";
-  }
-  if (code === "auth/operation-not-supported-in-this-environment") {
-    return "Google sign-in needs the page to be served over http:// or https://. " +
-           "Opening the file directly (file://) will not work.";
-  }
-  if (code === "auth/configuration-not-found") {
-    return "Google sign-in is not enabled for this Firebase project yet.";
-  }
-  return "Sign-in failed" + (code ? " (" + code + ")" : "") + ". Please try again.";
-}
+function openAccount() { showGate(""); }
 
 function signOut() {
   if (!cloud.on || !cloud.user) return;
-  cloud.auth.signOut().then(function () { location.reload(); });
+  cloud.auth.signOut().then(function () { localStorage.removeItem(STORE_KEY); localStorage.removeItem(LEGACY_STORE_KEY); location.reload(); });
 }
 
-/* ---- Firestore: one document per signed-in user ------------------- */
+
 
 function userDoc() {
   return cloud.db.collection("users").doc(cloud.user.uid);
@@ -5556,6 +5417,8 @@ function syncableState() {
     passed: state.passed,
     liked: state.liked,
     matches: state.matches,
+    blocked: state.blocked,
+    reported: state.reported,
     threads: state.threads,
     read: state.read,
     filter: state.filter,
@@ -5563,19 +5426,7 @@ function syncableState() {
   };
 }
 
-function noteCloudError(e) {
-  var msg = (e && e.message) || String(e);
-  if (/has not been used|SERVICE_DISABLED|NOT_FOUND/i.test(msg)) {
-    cloud.error = "Firestore is not switched on for this project yet. " +
-      "Firebase console -> Build -> Firestore Database -> Create database.";
-  } else if (/permission|PERMISSION_DENIED/i.test(msg)) {
-    cloud.error = "Firestore rejected the write. Check the security rules allow " +
-      "a signed-in user to read and write their own users/{uid} document.";
-  } else {
-    cloud.error = "Sync is unavailable: " + msg;
-  }
-  return cloud.error;
-}
+function noteCloudError(e) { cloud.error = "Sync unavailable: " + e.message; paintSync(); return cloud.error; }
 
 function pullFromCloud() {
   return userDoc().get().then(function (snap) {
@@ -5623,8 +5474,7 @@ function paintSync() {
   }
 }
 
-/* `save()` already runs after every change, so wrapping it is the one
-   hook needed to mirror everything to Firestore. */
+
 var localSave = save;
 save = function () {
   localSave();
@@ -5635,8 +5485,8 @@ save = function () {
 
 function startAuth() {
   armLanding();
-  /* No Firebase configured -> straight into the app, local only. */
-  if (!initFirebase()) { enterApp(); hideGate(); boot(); return; }
+  
+  if (!initBackend()) { enterApp(); hideGate(); boot(); return; }
 
   var chosenLocal = false;
   try { chosenLocal = localStorage.getItem(LOCAL_ONLY_KEY) === "1"; } catch (e) {}
@@ -5678,13 +5528,7 @@ function startAuth() {
   });
 }
 
-/* ==================================================================
-   12c. THE REAL DIRECTORY
 
-   Everyone you can see is a real person who signed in with Google.
-   Their public card lives in Firestore at profiles/{uid}; messages
-   live under threads/{pair}/messages. Nothing is invented locally.
-   ================================================================== */
 
 var unsub = { dir: null, thread: null, events: null, precise: null, calls: null };
 
@@ -5811,8 +5655,7 @@ function publishProfile() {
     .then(function () { cloud.error = ""; }, noteCloudError);
 }
 
-/* Listen to the whole directory. Firestore pushes changes, so somebody
-   signing in on another device shows up without a refresh. */
+
 var directorySeen = false;
 
 function watchDirectory() {
@@ -6005,137 +5848,14 @@ function watchMatchThreads() {
 
 var threadWatchFrom = Date.now();
 
-/* ==================================================================
-   12d. PHONE VERIFICATION
-   The verified badge means one checkable thing: this member received a
-   code on a phone number they control. Firebase does the sending and
-   the checking; the number itself is linked to the account and only
-   shown to other members if they choose to show it.
 
-   This needs Phone to be switched on in the Firebase console under
-   Authentication -> Sign-in method. Until it is, the flow fails with a
-   message that says exactly that rather than a raw error code.
-   ================================================================== */
 
 var verifier = null;
 
-function verifyPhoneDialog() {
-  if (!cloud.on || !cloud.user) { toast("Sign in first"); return; }
-  openModal(
-    '<div class="pehead"><h2 id="modalTitle">' + ic("shield-check") + ' Get verified</h2>' +
-      '<button type="button" class="icobtn del" data-act="close-modal" aria-label="Close">' + ic("x") + '</button></div>' +
-    '<div class="pebody">' +
-      '<p class="profhint">We send a code to your phone. Getting it back proves the ' +
-        'number is yours, and your card gets a verified badge. Your number is never ' +
-        'shown to anyone unless you turn that on yourself.</p>' +
-      '<div class="field"><label for="vp-num">Phone number, with country code</label>' +
-        '<input class="inp" id="vp-num" type="tel" placeholder="+63 912 345 6789" ' +
-          'value="' + esc((state.me.links || {}).phone || "") + '"></div>' +
-      '<div id="vp-recaptcha"></div>' +
-      '<div class="field" id="vp-codewrap" hidden><label for="vp-code">The six-digit code</label>' +
-        '<input class="inp num" id="vp-code" inputmode="numeric" maxlength="6" placeholder="123456"></div>' +
-      '<p class="fhint" id="vp-msg" hidden></p>' +
-    '</div>' +
-    '<div class="pefoot">' +
-      '<button class="btn" data-act="close-modal">Cancel</button>' +
-      '<button class="btn primary" id="vp-go">Send code</button>' +
-    '</div>', "profedit");
+function verifyPhoneDialog() { toast("Phone verification is not available in this edition."); }
+var VERSION_URL = "/version.json";
+var myBuild = null, newBuild = null, versionTimer = null;
 
-  var step = "send";
-  var confirmation = null;
-
-  function say(msg) {
-    var el = byId("vp-msg");
-    el.hidden = false;
-    el.textContent = msg;
-  }
-
-  byId("vp-go").addEventListener("click", function () {
-    var go = byId("vp-go");
-    if (step === "send") {
-      var num = byId("vp-num").value.trim();
-      if (!/^\+?[\d\s()-]{7,20}$/.test(num)) { say("That does not look like a phone number."); return; }
-      go.disabled = true; go.textContent = "Sending…";
-      try {
-        if (!verifier) {
-          verifier = new firebase.auth.RecaptchaVerifier("vp-recaptcha", { size: "invisible" });
-        }
-      } catch (e) {
-        go.disabled = false; go.textContent = "Send code";
-        say("Could not start the check: " + e.message);
-        return;
-      }
-      cloud.user.linkWithPhoneNumber(num.replace(/[^\d+]/g, ""), verifier)
-        .then(function (res) {
-          confirmation = res;
-          step = "code";
-          byId("vp-codewrap").hidden = false;
-          byId("vp-code").focus();
-          go.disabled = false; go.textContent = "Verify";
-          say("Code sent. It usually arrives within a minute.");
-        })
-        .catch(function (err) {
-          go.disabled = false; go.textContent = "Send code";
-          say(explainPhoneError(err));
-          if (verifier) { try { verifier.clear(); } catch (e2) {} verifier = null; }
-        });
-      return;
-    }
-
-    var code = byId("vp-code").value.trim();
-    if (code.length < 6) { say("The code is six digits."); return; }
-    go.disabled = true; go.textContent = "Checking…";
-    confirmation.confirm(code).then(function () {
-      state.me.phoneVerified = true;
-      if (!state.me.links) state.me.links = {};
-      state.me.links.phone = byId("vp-num").value.trim();
-      save();
-      publishProfile();
-      closeModal();
-      render();
-      toast("Verified — your card now carries the badge");
-    }).catch(function (err) {
-      go.disabled = false; go.textContent = "Verify";
-      say(err && err.code === "auth/invalid-verification-code"
-        ? "That code did not match. Try again."
-        : explainPhoneError(err));
-    });
-  });
-}
-
-function explainPhoneError(err) {
-  var code = err && err.code ? err.code : "";
-  if (code === "auth/operation-not-allowed" || code === "auth/configuration-not-found") {
-    return "Phone sign-in is not switched on for this Firebase project yet " +
-           "(Authentication -> Sign-in method -> Phone).";
-  }
-  if (code === "auth/credential-already-in-use" || code === "auth/account-exists-with-different-credential") {
-    return "That number is already verified on another account.";
-  }
-  if (code === "auth/too-many-requests") return "Too many attempts. Try again later.";
-  if (code === "auth/invalid-phone-number") return "That number was not accepted. Include the country code.";
-  if (code === "auth/unauthorized-domain") {
-    return "This address is not on the Firebase authorised domains list.";
-  }
-  return "Verification failed" + (code ? " (" + code + ")" : "") + ".";
-}
-
-/* ==================================================================
-   14. STAYING CURRENT
-   Two related jobs. One: notice when a new build has been deployed and
-   offer to take it, so an open tab never sits on stale code waiting for
-   somebody to hard-refresh. Two: pull down at the top of the list to
-   re-sync by hand, the way every app on a phone behaves.
-   ================================================================== */
-
-/* The version stamp is written by build.sh and is a hash of the app
-   file, so it moves only when the app actually changes. The build the
-   tab starts on is whatever it reads first; anything different later is
-   a new deploy. */
-var VERSION_URL = "version.json";
-var myBuild = null;
-var newBuild = null;
-var versionTimer = null;
 
 function readBuild() {
   return fetch(VERSION_URL, { cache: "no-store" })
@@ -6262,10 +5982,7 @@ function setPull(dy) {
   }
 }
 
-/* What "refresh" actually means here. Firestore is already live, so
-   this is not how you get new messages — it re-reads your own state,
-   republishes your card, redraws, and checks for a new build. If there
-   is one, taking it IS the refresh. */
+
 function runRefresh() {
   if (pull.busy) return;
   pull.busy = true;

@@ -1,4 +1,0 @@
-# Single static page. The "build" just copies the file into dist/.
-[build]
-  command = "./build.sh"
-  publish = "dist"
