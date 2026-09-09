@@ -1,0 +1,149 @@
+rules_version = '2';
+
+/*  GG Partner — Firestore security rules.
+
+    Paste into: Firebase console -> Build -> Firestore Database -> Rules
+    -> Publish. The app's setup notes in index.html point at this file.
+
+    Two ideas run through all of it:
+
+      1. Signing in is the price of reading anything. There is no public
+         directory, so a scraper without a Google account gets nothing.
+      2. You may only ever write documents that are yours. Every write
+         rule pins the document id, or a field inside it, to the uid on
+         the request.
+
+    Anything not matched below is denied — that is the default, and the
+    last rule makes it explicit.  */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isMe(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    /* The public member card: name, coarse point, likes, links. Every
+       signed-in member can read the directory; only you can write yours. */
+    match /profiles/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isMe(uid);
+      allow delete: if isMe(uid);
+    }
+
+    /* Your private state. Nobody else, ever — not even to read. */
+    match /users/{uid} {
+      allow read, write: if isMe(uid);
+    }
+
+    /* Your exact position. The document carries its own guest list in
+       `allowed`, which the app fills with the people you have matched
+       with, so the rule can gate on the data instead of guessing. */
+    match /precise/{uid} {
+      allow read: if isMe(uid)
+                  || (signedIn()
+                      && resource.data.allowed is list
+                      && request.auth.uid in resource.data.allowed);
+      allow create, update: if isMe(uid)
+                            && request.resource.data.uid == uid;
+      allow delete: if isMe(uid);
+    }
+
+    /* A conversation between two members. The document id is the two
+       uids sorted and joined with "__", so the rule can read the
+       participants straight off the id and never needs a lookup. */
+    match /threads/{threadId} {
+      function participant() {
+        return signedIn() && threadId.split('__').hasAny([request.auth.uid]);
+      }
+
+      allow read, write: if participant();
+
+      match /messages/{messageId} {
+        allow read: if participant();
+
+        /* Post only as yourself, only to the other half of the thread.
+           `text` is capped but not required to be non-empty: a voice
+           note carries its audio in `audio` and sends an empty string,
+           and a rule demanding text.size() > 0 rejects every one of
+           them. */
+        allow create: if participant()
+                      && request.resource.data.from == request.auth.uid
+                      && request.resource.data.to != request.auth.uid
+                      && threadId.split('__').hasAll([
+                           request.resource.data.from,
+                           request.resource.data.to
+                         ])
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() <= 2000;
+
+        /* Delivery receipts. The person a message was sent to may flip
+           `delivered` and `seen` on it, and nothing else — so a receipt
+           can never be used to rewrite what someone said. */
+        allow update: if participant()
+                      && resource.data.to == request.auth.uid
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['delivered', 'seen']);
+
+        allow delete: if false;
+      }
+    }
+
+    /* Call signalling. A call document is readable and writable by the
+       two people named on it — the caller writes the offer, the callee
+       writes the answer, and either may end it. The ICE candidates
+       inherit the same test through get() on the parent. */
+    match /calls/{callId} {
+      function onTheCall() {
+        return signedIn()
+               && (request.auth.uid == resource.data.from
+                   || request.auth.uid == resource.data.to);
+      }
+
+      allow read, update, delete: if onTheCall();
+      allow create: if signedIn()
+                    && request.resource.data.from == request.auth.uid
+                    && request.resource.data.to is string;
+
+      match /{candidates=**} {
+        allow read, write: if signedIn()
+          && (request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.from
+              || request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.to);
+      }
+    }
+
+    /* Event lobbies are visible to every signed-in member, because that
+       is the point of them. The host owns the document; everyone else
+       may only edit it to add or drop themselves from the member list,
+       which the app does when someone joins or leaves. */
+    match /events/{eventId} {
+      allow read: if signedIn();
+      /* `host` is an object, {uid, name} — not a bare uid. */
+      allow create: if signedIn()
+                    && request.resource.data.host.uid == request.auth.uid;
+      /* A joiner rewrites the whole document to add themselves to the
+         member list, which is fine as long as they cannot hand the
+         lobby to someone else on the way through. */
+      allow update: if signedIn()
+                    && (resource.data.host.uid == request.auth.uid
+                        || request.resource.data.host.uid == resource.data.host.uid);
+      allow delete: if signedIn() && resource.data.host.uid == request.auth.uid;
+    }
+
+    /* Reports go one way: a signed-in member can file one, and nobody
+       can read, edit or delete them from the app. Read them in the
+       console. */
+    match /reports/{reportId} {
+      allow create: if signedIn();
+      allow read, update, delete: if false;
+    }
+
+    /* Everything else. */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

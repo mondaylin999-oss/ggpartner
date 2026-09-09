@@ -1,0 +1,26 @@
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# The version stamp must never be read from a cache, or a tab would
+# happily report the build it started on forever.
+/version.json
+  Cache-Control: no-store
+  Content-Type: application/json
+
+# The app itself revalidates on every load, so a reload always gets the
+# newest deploy. Without this a tab can sit on an old build for hours.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The stylesheet and the script are unversioned filenames, so they have
+# to revalidate alongside the page that links them. Caching them harder
+# than index.html would serve a new page with the previous build's CSS.
+/styles.css
+  Cache-Control: public, max-age=0, must-revalidate
+/app.js
+  Cache-Control: public, max-age=0, must-revalidate
+
